@@ -13,28 +13,52 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:background="@android:color/transparent"
-        app:title="点播源"
+        app:title=""
         app:rightIcon="@drawable/ic_add_24"
         >
 
-        <ImageView
-            android:id="@+id/iv_use_tip"
+        <TextView
             android:layout_width="wrap_content"
-            android:layout_height="20dp"
-            android:src="@drawable/ic_use_description_24"
-            android:layout_gravity="end|center_vertical"
-            android:paddingLeft="20dp"
-            android:layout_marginRight="90dp"/>
+            android:layout_height="wrap_content"
+            android:layout_gravity="start|center_vertical"
+            android:layout_marginLeft="56dp"
+            android:text="点播源"
+            android:textColor="@color/text_foreground"
+            android:textSize="18sp" />
 
-        <ImageView
-            android:id="@+id/iv_cleanup_subscriptions"
-            android:layout_width="30dp"
-            android:layout_height="30dp"
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="44dp"
             android:layout_gravity="end|center_vertical"
-            android:layout_marginRight="50dp"
-            android:contentDescription="清理订阅"
-            android:padding="5dp"
-            android:src="@drawable/ic_clear" />
+            android:layout_marginRight="48dp"
+            android:orientation="horizontal">
+
+            <ImageView
+                android:id="@+id/iv_adult_sources"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:contentDescription="18+ 点播源设置"
+                android:clickable="true"
+                android:focusable="true"
+                android:padding="10dp"
+                android:src="@drawable/ic_peach_24" />
+
+            <ImageView
+                android:id="@+id/iv_use_tip"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:contentDescription="订阅提示"
+                android:padding="10dp"
+                android:src="@drawable/ic_use_description_24" />
+
+            <ImageView
+                android:id="@+id/iv_cleanup_subscriptions"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:contentDescription="清理订阅"
+                android:padding="12dp"
+                android:src="@drawable/ic_clear" />
+        </LinearLayout>
     </com.hjq.bar.TitleBar>
 
     <androidx.recyclerview.widget.RecyclerView

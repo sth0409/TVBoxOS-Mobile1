@@ -12,6 +12,7 @@ import com.kukuqi.tvbox.osc.event.SourceChangedEvent;
 import com.kukuqi.tvbox.osc.util.HawkConfig;
 import com.kukuqi.tvbox.osc.util.LiveSourceLoader;
 import com.kukuqi.tvbox.osc.util.SourceLibrary;
+import com.kukuqi.tvbox.osc.util.AdultSources;
 import com.kukuqi.tvbox.osc.util.WallpaperManager;
 import com.lxj.xpopup.XPopup;
 import com.lxj.xpopup.core.CenterPopupView;
@@ -102,7 +103,7 @@ public class SourcePickerDialog extends CenterPopupView {
         }).show();
     }
     private void existing() {
-        ArrayList<Subscription> items = Hawk.get(HawkConfig.SUBSCRIPTIONS, new ArrayList<>());
+        java.util.List<Subscription> items = AdultSources.visibleItems(Hawk.get(HawkConfig.SUBSCRIPTIONS, new ArrayList<>()));
         if (items.isEmpty()) { message("还没有视频订阅，可先添加来源"); return; }
         String[] labels = new String[items.size()];
         for (int i = 0; i < items.size(); i++) {

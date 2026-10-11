@@ -2,11 +2,15 @@ package com.kukuqi.tvbox.osc.ui.activity
 
 
 import android.app.Activity
+import android.app.AlertDialog
 import android.content.Intent
 import android.net.Uri
 import android.provider.OpenableColumns
 import android.text.TextUtils
+import android.text.InputType
 import android.view.View
+import android.widget.EditText
+import android.widget.LinearLayout
 import com.blankj.utilcode.util.ClipboardUtils
 import com.blankj.utilcode.util.LogUtils
 import com.blankj.utilcode.util.ToastUtils
@@ -22,7 +26,9 @@ import com.kukuqi.tvbox.osc.ui.dialog.SubsTipDialog
 import com.kukuqi.tvbox.osc.ui.dialog.SubsciptionDialog
 import com.kukuqi.tvbox.osc.ui.dialog.SubsciptionDialog.OnSubsciptionListener
 import com.kukuqi.tvbox.osc.util.HawkConfig
+import com.kukuqi.tvbox.osc.util.AdultSources
 import com.kukuqi.tvbox.osc.util.Utils
+import com.google.android.material.switchmaterial.SwitchMaterial
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 import com.lxj.xpopup.XPopup
@@ -56,7 +62,8 @@ class SubscriptionActivity : BaseVbActivity<ActivitySubscriptionBinding>() {
             }
         })
 
-        mSubscriptionAdapter.setNewData(mSubscriptions)
+        refreshSubscriptions()
+        mBinding.ivAdultSources.setOnClickListener { openAdultSources() }
         mBinding.ivUseTip.setOnClickListener {
             XPopup.Builder(this)
                 .asCustom(SubsTipDialog(this))
@@ -96,7 +103,7 @@ class SubscriptionActivity : BaseVbActivity<ActivitySubscriptionBinding>() {
         mSubscriptionAdapter.setOnItemChildClickListener { _: BaseQuickAdapter<*, *>?, view: View, position: Int ->
             LogUtils.d("删除订阅")
             if (view.id == R.id.iv_del) {
-                val subscription = mSubscriptions[position]
+                val subscription = mSubscriptionAdapter.data[position]
                 if (subscription.isBuiltIn) {
                     ToastUtils.showShort("内置订阅不能删除")
                     return@setOnItemChildClickListener
@@ -107,30 +114,22 @@ class SubscriptionActivity : BaseVbActivity<ActivitySubscriptionBinding>() {
                 }
                 XPopup.Builder(this@SubscriptionActivity)
                     .asConfirm("删除订阅", "确定删除订阅吗？") {
-                        mSubscriptions.removeAt(position)
-                        //删除/选择只刷新,不触发重新排序
-                        mSubscriptionAdapter.notifyDataSetChanged()
+                        mSubscriptions.remove(subscription)
+                        refreshSubscriptions()
                     }.show()
             }
         }
 
         mSubscriptionAdapter.setOnItemClickListener { _: BaseQuickAdapter<*, *>?, _: View?, position: Int ->  //选择订阅
-            for (i in mSubscriptions.indices) {
-                val subscription = mSubscriptions[i]
-                if (i == position) {
-                    subscription.setChecked(true)
-                    mSelectedUrl = subscription.url
-                } else {
-                    subscription.setChecked(false)
-                }
-            }
-            //删除/选择只刷新,不触发重新排序
-            mSubscriptionAdapter.notifyDataSetChanged()
+            val selected = mSubscriptionAdapter.data[position]
+            for (subscription in mSubscriptions) subscription.setChecked(subscription === selected)
+            mSelectedUrl = selected.url
+            refreshSubscriptions()
         }
 
         mSubscriptionAdapter.onItemLongClickListener =
             BaseQuickAdapter.OnItemLongClickListener { adapter: BaseQuickAdapter<*, *>?, view: View, position: Int ->
-                val item = mSubscriptions[position]
+                val item = mSubscriptionAdapter.data[position]
                 XPopup.Builder(this)
                     .atView(view.findViewById(R.id.tv_name))
                     .hasShadowBg(false)
@@ -144,8 +143,7 @@ class SubscriptionActivity : BaseVbActivity<ActivitySubscriptionBinding>() {
                         when (index) {
                             0 -> {
                                 item.isTop = !item.isTop
-                                mSubscriptions[position] = item
-                                mSubscriptionAdapter.setNewData(mSubscriptions)
+                                refreshSubscriptions()
                             }
                             1 -> {
                                 XPopup.Builder(this)
@@ -160,7 +158,7 @@ class SubscriptionActivity : BaseVbActivity<ActivitySubscriptionBinding>() {
                                                     ToastUtils.showShort("不要过长,不方便记忆")
                                                 } else {
                                                     item.name = text.trim { it <= ' ' }
-                                                    mSubscriptionAdapter.notifyItemChanged(position)
+                                                    refreshSubscriptions()
                                                 }
                                             }
                                         },
@@ -169,7 +167,7 @@ class SubscriptionActivity : BaseVbActivity<ActivitySubscriptionBinding>() {
                                     ).show()
                             }
                             2 -> {
-                                ClipboardUtils.copyText(mSubscriptions.get(position).url)
+                                ClipboardUtils.copyText(item.url)
                                 ToastUtils.showLong("已复制")
                             }
                         }
@@ -180,6 +178,88 @@ class SubscriptionActivity : BaseVbActivity<ActivitySubscriptionBinding>() {
 
     override fun onSourceChanged(event: com.kukuqi.tvbox.osc.event.SourceChangedEvent) {
         mSubscriptionAdapter.notifyDataSetChanged()
+    }
+
+    private fun refreshSubscriptions() {
+        mSubscriptionAdapter.setNewData(AdultSources.visibleItems(mSubscriptions))
+    }
+
+    private fun passwordInput(hint: String): EditText = EditText(this).apply {
+        this.hint = hint
+        inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+        isSingleLine = true
+    }
+
+    private fun passwordFields(vararg fields: View): LinearLayout = LinearLayout(this).apply {
+        orientation = LinearLayout.VERTICAL
+        val horizontal = (24 * resources.displayMetrics.density).toInt()
+        val vertical = (8 * resources.displayMetrics.density).toInt()
+        setPadding(horizontal, vertical, horizontal, vertical)
+        fields.forEach { addView(it) }
+    }
+
+    private fun openAdultSources() {
+        if (AdultSources.hasPassword()) {
+            val input = passwordInput("请输入密码")
+            val dialog = AlertDialog.Builder(this)
+                .setTitle("验证密码")
+                .setView(passwordFields(input))
+                .setNegativeButton("取消", null)
+                .setPositiveButton("进入", null)
+                .create()
+            dialog.setOnShowListener {
+                dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                    if (AdultSources.verifyPassword(input.text.toString())) {
+                        dialog.dismiss()
+                        showAdultControls()
+                    } else {
+                        input.error = "密码错误"
+                    }
+                }
+            }
+            dialog.show()
+        } else {
+            val password = passwordInput("设置密码（至少 4 位）")
+            val confirm = passwordInput("再次输入密码")
+            val dialog = AlertDialog.Builder(this)
+                .setTitle("设置 18+ 入口密码")
+                .setView(passwordFields(password, confirm))
+                .setNegativeButton("取消", null)
+                .setPositiveButton("保存", null)
+                .create()
+            dialog.setOnShowListener {
+                dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                    val value = password.text.toString()
+                    when {
+                        value.length < 4 -> password.error = "密码至少 4 位"
+                        value != confirm.text.toString() -> confirm.error = "两次输入不一致"
+                        !AdultSources.setPassword(value) -> password.error = "保存失败，请重试"
+                        else -> { dialog.dismiss(); showAdultControls() }
+                    }
+                }
+            }
+            dialog.show()
+        }
+    }
+
+    private fun showAdultControls() {
+        val toggle = SwitchMaterial(this).apply {
+            text = "显示 18+ 点播源"
+            isChecked = AdultSources.isVisible()
+            setOnCheckedChangeListener { _, checked ->
+                AdultSources.setVisible(checked)
+                if (!checked) mSelectedUrl = AdultSources.safeSelection(mSubscriptions, mSelectedUrl)
+                refreshSubscriptions()
+                Hawk.put(HawkConfig.API_URL, mSelectedUrl)
+                Hawk.put(HawkConfig.SUBSCRIPTIONS, mSubscriptions)
+            }
+        }
+        AlertDialog.Builder(this)
+            .setTitle("18+ 点播源")
+            .setMessage("开启后仅在本次应用启动期间显示；退出应用后自动隐藏。")
+            .setView(passwordFields(toggle))
+            .setPositiveButton("完成", null)
+            .show()
     }
 
     private fun pickFile(checked: Boolean) {
@@ -214,7 +294,7 @@ class SubscriptionActivity : BaseVbActivity<ActivitySubscriptionBinding>() {
             return
         }
         addSubscription(getDocumentName(uri), url, pendingLocalChecked)
-        mSubscriptionAdapter.setNewData(mSubscriptions)
+        refreshSubscriptions()
     }
 
     private fun getDocumentName(uri: Uri): String {
@@ -232,7 +312,7 @@ class SubscriptionActivity : BaseVbActivity<ActivitySubscriptionBinding>() {
     private fun addSubscription(name: String, url: String, checked: Boolean) {
         if (url.startsWith("clan://") || url.startsWith("content://")) {
             addSub2List(name, url, checked)
-            mSubscriptionAdapter.setNewData(mSubscriptions)
+            refreshSubscriptions()
         } else if (url.startsWith("http")) {
             showLoadingDialog()
             OkGo.get<String>(url)
@@ -299,7 +379,7 @@ class SubscriptionActivity : BaseVbActivity<ActivitySubscriptionBinding>() {
                         } catch (th: Throwable) {
                             addSub2List(name, url, checked)
                         }
-                        mSubscriptionAdapter.setNewData(mSubscriptions)
+                        refreshSubscriptions()
                     }
 
                     @Throws(Throwable::class)
@@ -415,7 +495,7 @@ class SubscriptionActivity : BaseVbActivity<ActivitySubscriptionBinding>() {
     }
 
     private fun finishSubscriptionCleanup(removed: Int, unavailable: Int) {
-        mSubscriptionAdapter.setNewData(mSubscriptions)
+        refreshSubscriptions()
         Hawk.put<List<Subscription>?>(HawkConfig.SUBSCRIPTIONS, mSubscriptions)
         val message = if (unavailable > 0) {
             "已清理 $removed 项，$unavailable 项网络异常已保留"
@@ -488,6 +568,7 @@ class SubscriptionActivity : BaseVbActivity<ActivitySubscriptionBinding>() {
     }
 
     override fun onPause() {
+        mSelectedUrl = AdultSources.safeSelection(mSubscriptions, mSelectedUrl)
         Hawk.put(HawkConfig.API_URL, mSelectedUrl)
         Hawk.put<List<Subscription>?>(HawkConfig.SUBSCRIPTIONS, mSubscriptions)
         super.onPause()

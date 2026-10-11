@@ -14,6 +14,7 @@ import com.kukuqi.tvbox.osc.data.AppDataManager;
 import com.kukuqi.tvbox.osc.server.ControlManager;
 import com.kukuqi.tvbox.osc.ui.activity.MainActivity;
 import com.kukuqi.tvbox.osc.util.EpgUtil;
+import com.kukuqi.tvbox.osc.util.AdultSources;
 import com.kukuqi.tvbox.osc.util.FileUtils;
 import com.kukuqi.tvbox.osc.util.HawkConfig;
 import com.kukuqi.tvbox.osc.util.LOG;
@@ -44,6 +45,7 @@ public class App extends MultiDexApplication {
     public void onCreate() {
         super.onCreate();
         instance = this;
+        AdultSources.setVisible(false);
         initParams();
         // OKGo
         OkGoHelper.init(); //台标获取
@@ -86,6 +88,7 @@ public class App extends MultiDexApplication {
         putDefault(HawkConfig.HISTORY_NUM, 2);                //历史记录数量: 0=30, 1=50, 2=70
         putDefaultApi();
         com.kukuqi.tvbox.osc.util.SourceDefaults.applyOnce();
+        AdultSources.resetHiddenSelection();
     }
 
     private void putDefaultApi() {
